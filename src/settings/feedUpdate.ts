@@ -1,6 +1,6 @@
 import { App, Notice, normalizePath } from 'obsidian';
-import RssPlugin, { FeedConfig, resolveFeedPath } from '../main';
-import { RawFeedItem, fetchAndExtract, fetchYoutubeDuration, fetchFullContent } from './feedExtractor';
+import RssPlugin, { DefuddleIncludeReplies, FeedConfig, FeedItem, PluginSettings, resolveFeedPath } from '../main';
+import { FullContent, FullContentOptions, RawFeedItem, fetchAndExtract, fetchYoutubeDuration, fetchFullContent } from './feedExtractor';
 import { processItems, sanitizeFileName } from './feedProcessor';
 import { saveFeedItem, applyTemplate } from './feedSaver';
 import { deleteLiveArticlesForFeed, runAutoCleanup, FileMeta, resolveLinkFromFile, readPubDateFromFrontmatter } from './feedDelete';
@@ -118,6 +118,83 @@ export async function cleanupBeforeUpdate(
     return runAutoCleanup(app, plugin, db, fileCache);
 }
 
+function mapIncludeReplies(value: DefuddleIncludeReplies | undefined): boolean | 'extractors' {
+    if (value === 'all') return true;
+    if (value === 'none') return false;
+    return 'extractors';
+}
+
+function resolveDefuddleOptions(feed: FeedConfig, settings: PluginSettings): FullContentOptions {
+    const includeReplies = mapIncludeReplies(feed.includeReplies ?? settings.includeRepliesGlobal);
+    const removeImages = feed.removeImages ?? settings.removeImagesGlobal ?? false;
+    const contentSelector = feed.contentSelector?.trim() || undefined;
+    const language = feed.transcriptLanguage?.trim() || settings.transcriptLanguageGlobal?.trim() || undefined;
+
+    return {
+        includeReplies,
+        removeImages,
+        contentSelector,
+        language,
+    };
+}
+
+function resolveYoutubeTranscriptEnabled(feed: FeedConfig, settings: PluginSettings): boolean {
+    if (feed.includeYoutubeTranscript === true) return true;
+    if (feed.includeYoutubeTranscript === false) return false;
+    return settings.includeYoutubeTranscriptGlobal ?? false;
+}
+
+function makeShortDescription(text: string): string {
+    const oneLine = text.replace(/\n+/g, ' ').trim();
+    return oneLine.length > 280 ? oneLine.slice(0, 277) + '...' : oneLine;
+}
+
+/**
+ * Merges Defuddle extraction results into the FeedItem using a hybrid priority:
+ *  - RSS → Defuddle fallback: title, pubDate (needed before fetch for filename/dedup)
+ *  - Defuddle → RSS fallback: content, description, author, imageUrl (non-YouTube)
+ *  - Defuddle-only: wordCount, site, domain, language
+ *  - YouTube (transcript enabled): preserves video embed, duration, thumbnail, channel author
+ */
+function applyDefuddleMetadata(item: FeedItem, full: FullContent, isYoutubeFeed: boolean): void {
+    // Defuddle-only metadata
+    if (full.wordCount) item.wordCount = full.wordCount;
+    if (full.site) item.site = full.site;
+    if (full.domain) item.domain = full.domain;
+    if (full.language) item.language = full.language;
+
+    // RSS → Defuddle fallback
+    if (!item.title && full.title) item.title = full.title;
+    if (!item.pubDate && full.published) item.pubDate = full.published;
+
+    if (!isYoutubeFeed) {
+        // Defuddle → RSS priority for standard articles/blogs
+        if (full.content) item.content = full.content;
+        if (full.description) {
+            item.description = full.description;
+            item.descriptionShort = makeShortDescription(full.description);
+        }
+        if (full.author) item.author = full.author;
+        if (full.image) item.imageUrl = full.image;
+        return;
+    }
+
+    // YouTube: preserve the embed at the top and merge transcript/content
+    if (!item.description && full.description) {
+        item.description = full.description;
+        item.descriptionShort = makeShortDescription(full.description);
+    }
+
+    if (full.content) {
+        const embedMatch = item.content.match(/^!\[\]\(https:\/\/www\.youtube\.com\/watch\?v=[\w-]+\)/);
+        if (embedMatch && !full.content.includes(embedMatch[0])) {
+            item.content = `${embedMatch[0]}\n\n${full.content}`;
+        } else {
+            item.content = full.content;
+        }
+    }
+}
+
 export async function updateFeed(
     app:      App,
     plugin:   RssPlugin,
@@ -160,10 +237,19 @@ export async function updateFeed(
         const absoluteFolderPath = resolveFeedPath(feed, plugin.settings);
         const userDb             = await loadUserDatabase(app);
 
+        const defuddleOptions          = resolveDefuddleOptions(feed, plugin.settings);
+        const includeYoutubeTranscript = isYoutubeFeed && resolveYoutubeTranscriptEnabled(feed, plugin.settings);
+        const skipShortsEnabled        =
+            feed.skipShorts === true  ? true  :
+            feed.skipShorts === false ? false :
+            (plugin.settings.skipShortsGlobal ?? false);
+
         for (const item of items) {
-            // Non-YouTube (standard blog/RSS) logic
-            if (!isYoutubeFeed) {
-                const isBlacklisted = !!item.link && isKnown(db, item.link);
+            const isSkippedShort      = isYoutubeFeed && skipShortsEnabled && /\/shorts\//i.test(item.link ?? '');
+            const shouldFetchDefuddle = (!isYoutubeFeed || includeYoutubeTranscript) && !isSkippedShort;
+
+            if (shouldFetchDefuddle) {
+                const isBlacklisted = !!item.link && (isKnown(db, item.link) || isKnown(userDb, item.link));
 
                 if (!isBlacklisted) {
                     const fileNameTemplate = feed.titleTemplate || plugin.settings.fileNameTemplate || '{{title}}';
@@ -175,11 +261,11 @@ export async function updateFeed(
                     if (!fileExists) {
                         let htmlContent: string | undefined;
                         if (item.link) {
-                            const full = await fetchFullContent(item.link);
-                            if (full?.content) item.content = full.content;
+                            const full = await fetchFullContent(item.link, defuddleOptions);
+                            if (full) applyDefuddleMetadata(item, full, isYoutubeFeed);
                             htmlContent = full?.html;
                         }
-                        if (!item.imageUrl && item.link) {
+                        if (!isYoutubeFeed && !item.imageUrl && item.link) {
                             item.imageUrl = await extractImageUrl({}, item.link, htmlContent);
                         }
                     }

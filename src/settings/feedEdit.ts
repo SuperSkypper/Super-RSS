@@ -1,5 +1,5 @@
 import { App, Modal, Setting, Notice, setIcon } from 'obsidian';
-import RssPlugin, { FeedConfig, FeedGroup, resolveFeedPath } from '../main';
+import RssPlugin, { DefuddleIncludeReplies, FeedConfig, FeedGroup, resolveFeedPath } from '../main';
 import { renderVariableReference } from './settingsTemplate';
 import { openEditFoldersModal, promptFolderName } from './editFolders';
 import { discardVaultFile } from './feedDelete';
@@ -395,6 +395,92 @@ export class FeedEditModal extends Modal {
                     })();
                 }));
         this.applyCardToSetting(deleteLivesSetting);
+
+        const ytTranscriptSetting = new Setting(container)
+            .setName('Include video transcript')
+            .setDesc('Fetch YouTube video transcripts when saving new videos. Overrides global setting.')
+            .addDropdown(d => d
+                .addOption('global', `Use global (${this.plugin.settings.includeYoutubeTranscriptGlobal ? 'on' : 'off'})`)
+                .addOption('on',     'Always on')
+                .addOption('off',    'Always off')
+                .setValue(
+                    this.feed.includeYoutubeTranscript === true  ? 'on'  :
+                    this.feed.includeYoutubeTranscript === false ? 'off' : 'global'
+                )
+                .onChange(v => {
+                    this.feed.includeYoutubeTranscript = v === 'on' ? true : v === 'off' ? false : undefined;
+                }));
+        this.applyCardToSetting(ytTranscriptSetting);
+
+        const ytLangSetting = new Setting(container)
+            .setName('Preferred language (optional)')
+            .setDesc('Language code (e.g., en, pt) for transcripts and page extraction. Leave blank to use global.')
+            .addText(t => {
+                t.setPlaceholder(this.plugin.settings.transcriptLanguageGlobal || 'Auto')
+                    .setValue(this.feed.transcriptLanguage || '')
+                    .onChange(v => {
+                        this.feed.transcriptLanguage = v.trim() || undefined;
+                    });
+                setDynamicCss(t.inputEl, { 'font-size': inputFontSize() });
+                t.inputEl.autocapitalize = 'off';
+                t.inputEl.autocomplete = 'off';
+                t.inputEl.spellcheck = false;
+            });
+        this.applyCardToSetting(ytLangSetting);
+
+        const extractionHeader = container.createEl('h4', { text: 'Content extraction' });
+        applyCssText(extractionHeader, 'margin: 20px 0 8px; color: var(--text-muted); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em;');
+
+        const globalRepliesLabel =
+            this.plugin.settings.includeRepliesGlobal === 'all'  ? 'all pages' :
+            this.plugin.settings.includeRepliesGlobal === 'none' ? 'none' :
+            'site extractors only';
+
+        const includeRepliesSetting = new Setting(container)
+            .setName('Include replies and comments')
+            .setDesc('Overrides global reply extraction for this feed.')
+            .addDropdown(d => d
+                .addOption('global',     `Use global (${globalRepliesLabel})`)
+                .addOption('extractors', 'Site extractors only')
+                .addOption('all',        'All pages')
+                .addOption('none',       'None')
+                .setValue(this.feed.includeReplies ?? 'global')
+                .onChange(v => {
+                    this.feed.includeReplies = v === 'global' ? undefined : v as DefuddleIncludeReplies;
+                }));
+        this.applyCardToSetting(includeRepliesSetting);
+
+        const removeImagesSetting = new Setting(container)
+            .setName('Remove images from content')
+            .setDesc('Strip embedded images from extracted article bodies. Overrides global setting.')
+            .addDropdown(d => d
+                .addOption('global', `Use global (${this.plugin.settings.removeImagesGlobal ? 'on' : 'off'})`)
+                .addOption('on',     'Always remove')
+                .addOption('off',    'Never remove')
+                .setValue(
+                    this.feed.removeImages === true  ? 'on'  :
+                    this.feed.removeImages === false ? 'off' : 'global'
+                )
+                .onChange(v => {
+                    this.feed.removeImages = v === 'on' ? true : v === 'off' ? false : undefined;
+                }));
+        this.applyCardToSetting(removeImagesSetting);
+
+        const contentSelectorSetting = new Setting(container)
+            .setName('Custom content selector (optional)')
+            .setDesc('CSS selector to target the main article container when auto-detection fails.')
+            .addText(t => {
+                t.setPlaceholder('.post-body')
+                    .setValue(this.feed.contentSelector || '')
+                    .onChange(v => {
+                        this.feed.contentSelector = v.trim() || undefined;
+                    });
+                setDynamicCss(t.inputEl, { 'font-size': inputFontSize() });
+                t.inputEl.autocapitalize = 'off';
+                t.inputEl.autocomplete = 'off';
+                t.inputEl.spellcheck = false;
+            });
+        this.applyCardToSetting(contentSelectorSetting);
 
 
     }

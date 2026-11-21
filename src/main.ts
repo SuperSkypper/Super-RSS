@@ -6,7 +6,7 @@ import { setDynamicCss } from "./utils/css";
 import { DEFAULT_SETTINGS } from './settings/settingsDefault';
 import type { FeedConfig, PluginLocalSettings, PluginSettings } from './settings/settingsDefault';
 import { migrateLegacyFrontmatterTemplate } from './settings/frontmatterMigration';
-export type { FeedItem, FeedConfig, FeedGroup, FrontmatterMode, FrontmatterPropertyTemplate, FrontmatterPropertyType, ImageLocation, DeleteBehavior, PluginSettings } from './settings/settingsDefault';
+export type { DefuddleIncludeReplies, FeedItem, FeedConfig, FeedGroup, FrontmatterMode, FrontmatterPropertyTemplate, FrontmatterPropertyType, ImageLocation, DeleteBehavior, PluginSettings } from './settings/settingsDefault';
 export { DEFAULT_SETTINGS } from './settings/settingsDefault';
 
 const MARK_AS_READ_PROTOCOL = 'rss-mark-as-read';
@@ -350,6 +350,10 @@ export default class RssPlugin extends Plugin {
         if (this.settings.skipShortsGlobal === undefined) this.settings.skipShortsGlobal = false;
         if (this.settings.tagLiveGlobal === undefined) this.settings.tagLiveGlobal = false;
         if (this.settings.tagLiveKeywords === undefined) this.settings.tagLiveKeywords = DEFAULT_SETTINGS.tagLiveKeywords;
+        if (this.settings.includeYoutubeTranscriptGlobal === undefined) this.settings.includeYoutubeTranscriptGlobal = false;
+        if (this.settings.transcriptLanguageGlobal === undefined) this.settings.transcriptLanguageGlobal = '';
+        if (this.settings.includeRepliesGlobal === undefined) this.settings.includeRepliesGlobal = DEFAULT_SETTINGS.includeRepliesGlobal;
+        if (this.settings.removeImagesGlobal === undefined) this.settings.removeImagesGlobal = false;
         if (this.settings.devMode === undefined) this.settings.devMode = false;
         if (this.settings.fileNameTemplate === undefined) this.settings.fileNameTemplate = DEFAULT_SETTINGS.fileNameTemplate;
         if (this.settings.frontmatterMode !== 'source' && this.settings.frontmatterMode !== 'properties') {

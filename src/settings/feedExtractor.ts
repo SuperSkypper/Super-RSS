@@ -25,9 +25,25 @@ export interface RawFeed {
 
 export interface FullContent {
     /** Main content as clean Markdown — always produced by defuddle/full */
-    content: string;
+    content:      string;
     /** Original HTML content returned by the server */
-    html?: string;
+    html?:        string;
+    title?:       string;
+    description?: string;
+    author?:      string;
+    image?:       string;
+    published?:   string;
+    wordCount?:   number;
+    site?:        string;
+    domain?:      string;
+    language?:    string;
+}
+
+export interface FullContentOptions {
+    includeReplies?:  boolean | 'extractors';
+    contentSelector?: string;
+    removeImages?:    boolean;
+    language?:        string;
 }
 
 // ─── XML parsing via DOMParser (browser-native, works on all platforms) ───────
@@ -373,26 +389,125 @@ function extractRssItems(doc: Document): RawFeedItem[] {
 
 // ─── Full content extraction via Defuddle ────────────────────────────────────
 
-// ─── Full content extraction via Defuddle ────────────────────────────────────
+function normalizeHeaders(headersInit?: HeadersInit): Record<string, string> {
+    const out: Record<string, string> = {};
+    if (!headersInit) return out;
+    if (headersInit instanceof Headers) {
+        headersInit.forEach((value, key) => { out[key] = value; });
+    } else if (Array.isArray(headersInit)) {
+        for (const [key, value] of headersInit) {
+            out[key] = value;
+        }
+    } else {
+        for (const [key, value] of Object.entries(headersInit)) {
+            if (typeof value === 'string') out[key] = value;
+        }
+    }
+    return out;
+}
+
+/**
+ * Adapts Obsidian's `requestUrl` to the standard Fetch API signature so
+ * Defuddle's async extractors (YouTube transcripts, X/Twitter, Reddit, GitHub)
+ * work across desktop and mobile without CORS restrictions.
+ */
+function createObsidianFetch(): typeof window.fetch {
+    const obsidianFetch = async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+    ): Promise<Response> => {
+        if (init?.signal?.aborted) {
+            throw new DOMException('The operation was aborted.', 'AbortError');
+        }
+
+        const url = typeof input === 'string'
+            ? input
+            : input instanceof URL
+                ? input.toString()
+                : input.url;
+
+        const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+        const headers = normalizeHeaders(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+
+        let body: string | ArrayBuffer | undefined;
+        if (typeof init?.body === 'string' || init?.body instanceof ArrayBuffer) {
+            body = init.body;
+        } else if (init?.body instanceof URLSearchParams) {
+            body = init.body.toString();
+        } else if (ArrayBuffer.isView(init?.body)) {
+            const view = init.body;
+            body = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+        }
+
+        const requestPromise = requestUrl({
+            url,
+            method,
+            headers,
+            ...(body !== undefined ? { body } : {}),
+            throw: false,
+        });
+
+        const res = init?.signal
+            ? await new Promise<Awaited<typeof requestPromise>>((resolve, reject) => {
+                const signal = init.signal!;
+                const onAbort = () => reject(new DOMException('The operation was aborted.', 'AbortError'));
+                if (signal.aborted) {
+                    onAbort();
+                    return;
+                }
+                signal.addEventListener('abort', onAbort, { once: true });
+                requestPromise.then(
+                    value => { signal.removeEventListener('abort', onAbort); resolve(value); },
+                    err => { signal.removeEventListener('abort', onAbort); reject(err instanceof Error ? err : new Error(String(err))); }
+                );
+            })
+            : await requestPromise;
+
+        if (res.status < 200 || res.status > 599) {
+            throw new TypeError(`Network request failed with status ${res.status}`);
+        }
+
+        const isNullBodyStatus = res.status === 204 || res.status === 205 || res.status === 304;
+        return new Response(isNullBodyStatus ? null : res.arrayBuffer, {
+            status:  res.status,
+            headers: res.headers,
+        });
+    };
+
+    return obsidianFetch;
+}
+
+function cleanOptionalString(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+}
 
 /**
  * Fetches the article HTML via requestUrl and extracts the main content as
- * Markdown using Defuddle (full bundle) running in Obsidian's native browser DOM.
+ * Markdown plus metadata using Defuddle (full bundle) via `parseAsync()`.
  *
- * defuddle/full honours { markdown: true } and always returns clean Markdown —
- * no HTML-stripping pipeline is needed on the caller side.
+ * Uses Obsidian's `requestUrl` as a custom fetch adapter so async extractors
+ * (YouTube transcripts, X/Twitter, Reddit, GitHub, etc.) bypass CORS.
  *
  * Falls back to null on any error so callers can gracefully use feed content.
  */
-export async function fetchFullContent(url: string): Promise<FullContent | null> {
+export async function fetchFullContent(
+    url: string,
+    options: FullContentOptions = {}
+): Promise<FullContent | null> {
     try {
+        const acceptLanguage = options.language
+            ? `${options.language},en-US;q=0.8,en;q=0.7`
+            : 'en-US,en;q=0.9';
+
         const response = await requestUrl({
             url,
             method:  'GET',
             headers: {
                 'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Language': acceptLanguage,
             },
         });
 
@@ -409,12 +524,45 @@ export async function fetchFullContent(url: string): Promise<FullContent | null>
         base.href  = url;
 
         const { default: Defuddle } = await import('defuddle/full');
-        const result = new Defuddle(doc, { markdown: true, url }).parse();
+        const result = await new Defuddle(doc, {
+            markdown:       true,
+            url,
+            useAsync:       true,
+            fetch:          createObsidianFetch(),
+            includeReplies: options.includeReplies ?? 'extractors',
+            removeImages:   options.removeImages ?? false,
+            ...(options.contentSelector ? { contentSelector: options.contentSelector } : {}),
+            ...(options.language ? { language: options.language } : {}),
+        }).parseAsync();
 
-        const content = result?.content?.trim() ?? '';
-        if (!content) return null;
+        const content     = result?.content?.trim() ?? '';
+        const title       = cleanOptionalString(result?.title);
+        const description = cleanOptionalString(result?.description);
+        const author      = cleanOptionalString(result?.author);
+        const image       = cleanOptionalString(result?.image);
+        const published   = cleanOptionalString(result?.published);
+        const site        = cleanOptionalString(result?.site);
+        const domain      = cleanOptionalString(result?.domain);
+        const language    = cleanOptionalString(result?.language);
+        const wordCount   = typeof result?.wordCount === 'number' && result.wordCount > 0
+            ? result.wordCount
+            : undefined;
 
-        return { content, html };
+        if (!content && !description && !image && !author) return null;
+
+        return {
+            content,
+            html,
+            title,
+            description,
+            author,
+            image,
+            published,
+            wordCount,
+            site,
+            domain,
+            language,
+        };
     } catch (e) {
         console.warn(`RSS: Defuddle failed for ${url}:`, e);
         return null;

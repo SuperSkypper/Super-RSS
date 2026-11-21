@@ -537,6 +537,7 @@ function renderFrontmatterProperties(
 const KNOWN_PLACEHOLDERS = new Set([
     'title', 'link', 'snippet', 'image', 'datepublished', 'datepub', 'datesaved',
     'content', 'feedname', 'tags', 'author', 'ytduration', 'duration',
+    'wordcount', 'site', 'domain', 'language',
 ]);
 
 export function applyTemplate(
@@ -633,6 +634,10 @@ export function applyTemplate(
         .replace(/{{content}}/g,       renderContent())
         .replace(/{{ytduration}}/g,    sanitize(item.duration ?? ''))
         .replace(/{{duration}}/g,      sanitize(item.duration ?? ''))  // backward compat
+        .replace(/{{wordcount}}/gi,    sanitize(item.wordCount ?? ''))
+        .replace(/{{site}}/gi,         sanitize(item.site ?? ''))
+        .replace(/{{domain}}/gi,       sanitize(item.domain ?? ''))
+        .replace(/{{language}}/gi,     sanitize(item.language ?? ''))
         .replace(/{{tags}}/g,          tags)
         .replace(/{{#tags}}/g,         tags);             // backward compat
 

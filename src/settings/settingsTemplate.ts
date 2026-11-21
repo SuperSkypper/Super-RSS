@@ -31,6 +31,10 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
     { tag: '{{image}}',         scopes: ['frontmatter', 'content'] },
     { tag: '{{ytduration}}',    scopes: ['frontmatter', 'content'] },
     { tag: '{{tags}}',          scopes: ['frontmatter', 'content'] },
+    { tag: '{{wordcount}}',     scopes: ['frontmatter', 'content'] },
+    { tag: '{{site}}',          scopes: ['frontmatter', 'content'] },
+    { tag: '{{domain}}',        scopes: ['frontmatter', 'content'] },
+    { tag: '{{language}}',      scopes: ['frontmatter', 'content'] },
     { tag: '{{content}}',       scopes: ['content'] },
 ];
 

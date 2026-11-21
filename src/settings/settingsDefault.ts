@@ -1,5 +1,7 @@
 // ─── Interfaces & Types ───────────────────────────────────────────────────────
 
+export type DefuddleIncludeReplies = 'extractors' | 'all' | 'none';
+
 export interface FeedItem {
     title:            string;
     link:             string;
@@ -11,32 +13,41 @@ export interface FeedItem {
     imageUrl:         string;
     categories:       string[];
     duration?:        string;
+    wordCount?:       number;
+    site?:            string;
+    domain?:          string;
+    language?:        string;
 }
 
 export interface FeedConfig {
-    name:                  string;
-    url:                   string;
-    folder:                string;
-    enabled:               boolean;
-    lastUpdated?:          number;
-    archived?:             boolean;
-    deleted?:              boolean;
-    deletedAt?:            number;
-    groupId?:              string;
-    previousName?:         string; // tracks last saved name to detect renames
-    tagShorts?:            boolean;
-    skipShorts?:           boolean;
-    tagLive?:              boolean;
-    deleteLives?:          boolean;
-    titleTemplate?:        string;
-    frontmatterTemplate?:  string;
-    contentTemplate?:      string;
-    updateIntervalValue?:  number;
-    updateIntervalUnit?:   'minutes' | 'hours' | 'days' | 'months';
-    autoCleanupValue?:     number;
-    autoCleanupUnit?:      'minutes' | 'hours' | 'days' | 'months';
-    autoCleanupDateField?: 'global' | 'datepub' | 'datesaved';
-    extraFrontmatterRaw?:  string;
+    name:                     string;
+    url:                      string;
+    folder:                   string;
+    enabled:                  boolean;
+    lastUpdated?:             number;
+    archived?:                boolean;
+    deleted?:                 boolean;
+    deletedAt?:               number;
+    groupId?:                 string;
+    previousName?:            string; // tracks last saved name to detect renames
+    tagShorts?:               boolean;
+    skipShorts?:              boolean;
+    tagLive?:                 boolean;
+    deleteLives?:             boolean;
+    includeYoutubeTranscript?: boolean;
+    transcriptLanguage?:      string;
+    includeReplies?:          DefuddleIncludeReplies;
+    contentSelector?:         string;
+    removeImages?:            boolean;
+    titleTemplate?:           string;
+    frontmatterTemplate?:     string;
+    contentTemplate?:         string;
+    updateIntervalValue?:     number;
+    updateIntervalUnit?:      'minutes' | 'hours' | 'days' | 'months';
+    autoCleanupValue?:        number;
+    autoCleanupUnit?:         'minutes' | 'hours' | 'days' | 'months';
+    autoCleanupDateField?:    'global' | 'datepub' | 'datesaved';
+    extraFrontmatterRaw?:     string;
 }
 
 export interface FeedGroup {
@@ -81,11 +92,15 @@ export interface PluginSettings {
     imageLocation:               ImageLocation;
     imagesFolder:                string;
     useFeedFolder:               boolean;
-    tagShortsGlobal:             boolean;
-    skipShortsGlobal:            boolean;
-    tagLiveGlobal:               boolean;
-    tagLiveKeywords:             string;
-    devMode:                     boolean;
+    tagShortsGlobal:                boolean;
+    skipShortsGlobal:               boolean;
+    tagLiveGlobal:                  boolean;
+    tagLiveKeywords:                string;
+    includeYoutubeTranscriptGlobal: boolean;
+    transcriptLanguageGlobal:       string;
+    includeRepliesGlobal:           DefuddleIncludeReplies;
+    removeImagesGlobal:             boolean;
+    devMode:                        boolean;
     showProgressNotice:          boolean;
     showStatusBar:               boolean;
     ribbonUpdate:                boolean;
@@ -165,11 +180,15 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     imageLocation:               'obsidian',
     imagesFolder:                'attachments',
     useFeedFolder:               true,
-    tagShortsGlobal:             false,
-    skipShortsGlobal:            false,
-    tagLiveGlobal:               false,
-    tagLiveKeywords:             'live, ao vivo, stream, 🔴, streaming, livestream',
-    devMode:                     false,
+    tagShortsGlobal:                false,
+    skipShortsGlobal:               false,
+    tagLiveGlobal:                  false,
+    tagLiveKeywords:                'live, ao vivo, stream, 🔴, streaming, livestream',
+    includeYoutubeTranscriptGlobal: false,
+    transcriptLanguageGlobal:       '',
+    includeRepliesGlobal:           'extractors',
+    removeImagesGlobal:             false,
+    devMode:                        false,
     showProgressNotice:          true,
     showStatusBar:               true,
     ribbonUpdate:                true,

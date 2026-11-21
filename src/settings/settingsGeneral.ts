@@ -1,5 +1,5 @@
 import { Setting, Notice } from 'obsidian';
-import RssPlugin from '../main';
+import RssPlugin, { DefuddleIncludeReplies } from '../main';
 import { purgeEntriesByStatus, ArticleStatus } from './feedDatabase';
 import { setDynamicCss } from "../utils/css";
 
@@ -592,6 +592,67 @@ export function renderGeneralTab(
         applyCardStyle(tagLiveKeywordsSetting);
         applyIndent(tagLiveKeywordsSetting.settingEl);
     }
+
+    const ytTranscriptToggle = new Setting(contentEl)
+        .setName('Include video transcript')
+        .setDesc('Fetch YouTube video transcripts with chapters and timestamps when saving new videos.')
+        .addToggle(toggle => toggle
+            .setValue(plugin.settings.includeYoutubeTranscriptGlobal ?? false)
+            .onChange((v) => {
+                plugin.settings.includeYoutubeTranscriptGlobal = v;
+                saveSettings(plugin);
+                rerender();
+            }));
+    applyCardStyle(ytTranscriptToggle);
+
+    if (plugin.settings.includeYoutubeTranscriptGlobal) {
+        const ytLangSetting = new Setting(contentEl)
+            .setName('Preferred transcript language')
+            .setDesc('Optional language code (e.g., en, pt, es). Leave blank for automatic selection.')
+            .addText(t => {
+                t.setPlaceholder('Auto')
+                    .setValue(plugin.settings.transcriptLanguageGlobal ?? '')
+                    .onChange(debounce(async (v: string) => {
+                        plugin.settings.transcriptLanguageGlobal = v.trim();
+                        saveSettings(plugin);
+                    }, 500));
+                setDynamicCss(t.inputEl, { 'font-size': '16px' });
+                t.inputEl.autocapitalize = 'off';
+                t.inputEl.autocomplete = 'off';
+                t.inputEl.spellcheck = false;
+            });
+        applyCardStyle(ytLangSetting);
+        applyIndent(ytLangSetting.settingEl);
+    }
+
+    // ── Content Extraction ────────────────────────────────────────────────────
+
+    contentEl.createEl('h3', { text: 'Content extraction' });
+
+    const includeRepliesSetting = new Setting(contentEl)
+        .setName('Include replies and comments')
+        .setDesc('Choose whether extracted articles include replies (e.g., Reddit, GitHub, X).')
+        .addDropdown(dropdown => dropdown
+            .addOption('extractors', 'Site extractors only')
+            .addOption('all', 'All pages')
+            .addOption('none', 'None')
+            .setValue(plugin.settings.includeRepliesGlobal ?? 'extractors')
+            .onChange((v: string) => {
+                plugin.settings.includeRepliesGlobal = v as DefuddleIncludeReplies;
+                saveSettings(plugin);
+            }));
+    applyCardStyle(includeRepliesSetting);
+
+    const removeImagesSetting = new Setting(contentEl)
+        .setName('Remove images from content')
+        .setDesc('Strip embedded images from extracted article bodies.')
+        .addToggle(toggle => toggle
+            .setValue(plugin.settings.removeImagesGlobal ?? false)
+            .onChange((v) => {
+                plugin.settings.removeImagesGlobal = v;
+                saveSettings(plugin);
+            }));
+    applyCardStyle(removeImagesSetting);
 
 
     // ── Developer Tools ───────────────────────────────────────────────────────

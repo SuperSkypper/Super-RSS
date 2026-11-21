@@ -1,3 +1,16 @@
+# Changelog - v0.0.12
+
+## New features & improvements
+- Updated `defuddle` from `0.19.6` to `0.19.13`, bringing improved extraction for Substack, X/Twitter, Hacker News, Mastodon, WordPress galleries, `<picture>`/`srcset` images, footnotes, code blocks, and faster selector cleanup on long pages.
+- Switched content extraction to Defuddle's `parseAsync()` backed by an Obsidian `requestUrl` fetch adapter, enabling async site extractors (YouTube transcripts, X/Twitter, Reddit, GitHub) without CORS issues on desktop and mobile.
+- Added optional **Include video transcript** and **Preferred language** settings (global and per-feed) to fetch YouTube transcripts with chapters and timestamps while preserving the video embed, duration, and high-resolution thumbnail.
+- Added global and per-feed **Content extraction** controls: **Include replies and comments** (`Site extractors only`, `All pages`, `None`), **Remove images from content**, and per-feed **Custom content selector (optional)**.
+- Upgraded article metadata extraction to a hybrid priority: RSS remains primary for `title` and `pubDate` (with Defuddle fallback), while Defuddle takes priority for `content`, `description`, `author`, and cover `image` (with RSS fallback).
+- Added new template variables for frontmatter and content: `{{wordcount}}`, `{{site}}`, `{{domain}}`, and `{{language}}`.
+
+## Fixes
+- Avoided fetching full content or YouTube transcripts for skipped YouTube Shorts and articles already tracked in the user database.
+
 # Changelog - v0.0.11
 
 ## Community review fixes
