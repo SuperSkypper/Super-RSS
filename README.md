@@ -1,6 +1,6 @@
 # 📡 Super RSS
 
-[![Release](https://img.shields.io/github/v/release/SuperSkypper/super-rss)](https://github.com/SuperSkypper/super-rss/releases/latest)
+[![Release](https://img.shields.io/github/v/release/SuperSkypper/Super-RSS)](https://github.com/SuperSkypper/Super-RSS/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Min App Version](https://img.shields.io/badge/obsidian-1.6.6%2B-7c3aed)](https://obsidian.md)
 
@@ -51,7 +51,7 @@ Install **Super RSS** from **Settings → Community plugins** inside Obsidian.
 
 ### Manual
 
-1. Download `manifest.json`, `main.js`, and `styles.css` from the [latest release](https://github.com/SuperSkypper/super-rss/releases/latest).
+1. Download `manifest.json`, `main.js`, and `styles.css` from the [latest release](https://github.com/SuperSkypper/Super-RSS/releases/latest).
 2. Create the folder `<Vault>/.obsidian/plugins/super-rss/`.
 3. Copy the three files into that folder.
 4. Reload Obsidian and enable **Super RSS** under **Settings → Community plugins**.
@@ -87,7 +87,7 @@ Copy `manifest.json`, `main.js`, and `styles.css` to `<Vault>/.obsidian/plugins/
 
 ## 💬 Support
 
-- [GitHub Issues](https://github.com/SuperSkypper/super-rss/issues) — bug reports and feature requests
+- [GitHub Issues](https://github.com/SuperSkypper/Super-RSS/issues) — bug reports and feature requests
 - [Ko-fi](https://ko-fi.com/superskypper)
 - [X / Twitter](https://x.com/SuperSkypper)
 
